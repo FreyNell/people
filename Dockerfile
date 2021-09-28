@@ -6,5 +6,4 @@ COPY go.sum ./
 RUN go mod download
 COPY *.go ./
 RUN go build -o /people
-EXPOSE 8082
 CMD [ "/people" ]

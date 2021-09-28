@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: people-svc
+  labels:
+    enviroment: dev
+    app: people-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: people-svc
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: people-svc
+    spec:
+      containers:
+      - name: people
+        image: people:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 8082
