@@ -47,11 +47,16 @@ func getPersonByID(c *gin.Context) {
 	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "person not found."})
 }
 
+func defaultResponse(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, "People Service")
+}
+
 func main() {
 	router := gin.Default()
+	router.GET("/", defaultResponse)
 	router.GET("/people", getPeople)
 	router.GET("/people/:id", getPersonByID)
 	router.POST("/people", postPeople)
 
-	router.Run("localhost:8082")
+	router.Run("0.0.0.0:8082")
 }
