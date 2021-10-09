@@ -53,6 +53,7 @@ func defaultResponse(c *gin.Context) {
 
 func main() {
 	router := gin.Default()
+
 	router.GET("/", defaultResponse)
 	router.GET("/people", getPeople)
 	router.GET("/people/:id", getPersonByID)
