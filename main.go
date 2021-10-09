@@ -59,5 +59,5 @@ func main() {
 	router.GET("/people/:id", getPersonByID)
 	router.POST("/people", postPeople)
 
-	router.Run("0.0.0.0:8082")
+	router.Run("0.0.0.0:8080")
 }
