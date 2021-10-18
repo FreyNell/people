@@ -1,9 +1,14 @@
 package main
 
 import (
+	"database/sql"
+	"log"
 	"net/http"
+	"os"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/go-sql-driver/mysql"
 )
 
 type person struct {
@@ -51,8 +56,61 @@ func defaultResponse(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "People Service")
 }
 
+func createDB(name string) (db *sql.DB) {
+
+	cfg := mysql.Config{
+		User:   os.Getenv("DBUSER"),
+		Passwd: os.Getenv("DBPASS"),
+		Net:    "tcp",
+		Addr:   "192.168.0.42:3306",
+	}
+
+	var err error
+	db, err = sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = db.Exec("CREATE DATABASE IF NOT EXISTS " + name)
+	if err != nil {
+		log.Fatal(err)
+	}
+	db.Close()
+
+	cfg = mysql.Config{
+		User:   os.Getenv("DBUSER"),
+		Passwd: os.Getenv("DBPASS"),
+		Net:    "tcp",
+		Addr:   "192.168.0.42:3306",
+		DBName: name,
+	}
+	db, err = sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS people(" +
+		"id INT NOT NULL AUTO_INCREMENT PRIMARY KEY," +
+		"name VARCHAR(30) NOT NULL," +
+		"age INT," +
+		"sex INT" +
+		");")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return
+}
+
 func main() {
+
+	db := createDB("people")
+
 	router := gin.Default()
+
+	if os.Getenv("ENV") == "dev" {
+		router.Use(cors.Default())
+	}
 
 	router.GET("/", defaultResponse)
 	router.GET("/people", getPeople)
