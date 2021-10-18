@@ -21,8 +21,55 @@ type person struct {
 
 var DBNAME string = "people"
 
+func createDB() (db *sql.DB) {
+
+	cfg := mysql.Config{
+		User:   os.Getenv("DBUSER"),
+		Passwd: os.Getenv("DBPASS"),
+		Net:    "tcp",
+		Addr:   os.Getenv("DBIP") + ":" + os.Getenv("DBPORT"),
+	}
+
+	log.Print(os.Getenv("DBIP") + ":" + os.Getenv("DBPORT"))
+	var err error
+	db, err = sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = db.Exec("CREATE DATABASE IF NOT EXISTS " + DBNAME)
+	if err != nil {
+		log.Fatal(err)
+	}
+	db.Close()
+
+	cfg = mysql.Config{
+		User:   os.Getenv("DBUSER"),
+		Passwd: os.Getenv("DBPASS"),
+		Net:    "tcp",
+		Addr:   os.Getenv("DBIP") + ":" + os.Getenv("DBPORT"),
+		DBName: DBNAME,
+	}
+	db, err = sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS people(" +
+		"id INT NOT NULL AUTO_INCREMENT PRIMARY KEY," +
+		"name VARCHAR(30) NOT NULL," +
+		"age INT," +
+		"sex INT" +
+		");")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return
+}
+
 func getPeople(c *gin.Context) {
-	db := createDB("people")
+	db := createDB()
 
 	var people []person
 	rows, err := db.Query("SELECT id,name,age,sex FROM people;")
@@ -56,7 +103,7 @@ func postPeople(c *gin.Context) {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "An error has occur"})
 	}
 
-	db := createDB("people")
+	db := createDB()
 	result, err := db.Exec("INSERT INTO people(name,age,sex) VALUES (?,?,?);", newPerson.Name, newPerson.Age, newPerson.Sex)
 	defer db.Close()
 
@@ -78,7 +125,7 @@ func getPersonByID(c *gin.Context) {
 
 	var per person
 
-	db := createDB("people")
+	db := createDB()
 	row := db.QueryRow("SELECT id,name,age,sex FROM people WHERE id = ?", id)
 	defer db.Close()
 	if err := row.Scan(&per.ID, &per.Name, &per.Age, &per.Sex); err != nil {
@@ -94,52 +141,6 @@ func getPersonByID(c *gin.Context) {
 
 func defaultResponse(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "People Service")
-}
-
-func createDB(name string) (db *sql.DB) {
-
-	cfg := mysql.Config{
-		User:   os.Getenv("DBUSER"),
-		Passwd: os.Getenv("DBPASS"),
-		Net:    "tcp",
-		Addr:   os.Getenv("DBIP") + ":" + os.Getenv("DBPORT"),
-	}
-
-	var err error
-	db, err = sql.Open("mysql", cfg.FormatDSN())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = db.Exec("CREATE DATABASE IF NOT EXISTS " + name)
-	if err != nil {
-		log.Fatal(err)
-	}
-	db.Close()
-
-	cfg = mysql.Config{
-		User:   os.Getenv("DBUSER"),
-		Passwd: os.Getenv("DBPASS"),
-		Net:    "tcp",
-		Addr:   os.Getenv("DBIP") + ":" + os.Getenv("DBPORT"),
-		DBName: name,
-	}
-	db, err = sql.Open("mysql", cfg.FormatDSN())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS people(" +
-		"id INT NOT NULL AUTO_INCREMENT PRIMARY KEY," +
-		"name VARCHAR(30) NOT NULL," +
-		"age INT," +
-		"sex INT" +
-		");")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return
 }
 
 func main() {
