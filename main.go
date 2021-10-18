@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -18,14 +19,32 @@ type person struct {
 	Sex  string `json:"sex"`
 }
 
-// starting data.
-var people = []person{
-	{ID: "1", Name: "Erick", Age: 25, Sex: "male"},
-	{ID: "2", Name: "Stefanny", Age: 25, Sex: "female"},
-	{ID: "3", Name: "George", Age: 23, Sex: "male"},
-}
+var DBNAME string = "people"
 
 func getPeople(c *gin.Context) {
+	db := createDB("people")
+
+	var people []person
+	rows, err := db.Query("SELECT id,name,age,sex FROM people;")
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	defer rows.Close()
+	defer db.Close()
+
+	for rows.Next() {
+		var per person
+		if err := rows.Scan(&per.ID, &per.Name, &per.Age, &per.Sex); err != nil {
+			log.Fatal(err)
+			return
+		}
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
+		return
+	}
+
 	c.IndentedJSON(http.StatusOK, people)
 }
 
@@ -33,23 +52,44 @@ func postPeople(c *gin.Context) {
 	var newPerson person
 
 	if err := c.BindJSON(&newPerson); err != nil {
-		return
+		log.Fatal(err)
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "An error has occur"})
 	}
 
-	people = append(people, newPerson)
-	c.IndentedJSON(http.StatusCreated, newPerson)
+	db := createDB("people")
+	result, err := db.Exec("INSERT INTO people(name,age,sex) VALUES (?,?,?);", newPerson.Name, newPerson.Age, newPerson.Sex)
+	defer db.Close()
+
+	if err != nil {
+		log.Fatal(err)
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "An error has occur"})
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		log.Fatal(err)
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "An error has occur"})
+	}
+	c.IndentedJSON(http.StatusCreated, gin.H{"message": "Created ID: " + strconv.FormatInt(id, 10)})
 }
 
 func getPersonByID(c *gin.Context) {
 	id := c.Param("id")
 
-	for _, a := range people {
-		if a.ID == id {
-			c.IndentedJSON(http.StatusOK, a)
-			return
+	var per person
+
+	db := createDB("people")
+	row := db.QueryRow("SELECT id,name,age,sex FROM people WHERE id = ?", id)
+	defer db.Close()
+	if err := row.Scan(&per.ID, &per.Name, &per.Age, &per.Sex); err != nil {
+		if err == sql.ErrNoRows {
+			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Person not found."})
 		}
+		log.Fatal(err)
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "An error has ocurr."})
 	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "person not found."})
+	c.IndentedJSON(http.StatusOK, per)
+
 }
 
 func defaultResponse(c *gin.Context) {
@@ -62,7 +102,7 @@ func createDB(name string) (db *sql.DB) {
 		User:   os.Getenv("DBUSER"),
 		Passwd: os.Getenv("DBPASS"),
 		Net:    "tcp",
-		Addr:   "192.168.0.42:3306",
+		Addr:   os.Getenv("DBIP") + ":" + os.Getenv("DBPORT"),
 	}
 
 	var err error
@@ -81,7 +121,7 @@ func createDB(name string) (db *sql.DB) {
 		User:   os.Getenv("DBUSER"),
 		Passwd: os.Getenv("DBPASS"),
 		Net:    "tcp",
-		Addr:   "192.168.0.42:3306",
+		Addr:   os.Getenv("DBIP") + ":" + os.Getenv("DBPORT"),
 		DBName: name,
 	}
 	db, err = sql.Open("mysql", cfg.FormatDSN())
@@ -103,8 +143,6 @@ func createDB(name string) (db *sql.DB) {
 }
 
 func main() {
-
-	db := createDB("people")
 
 	router := gin.Default()
 
