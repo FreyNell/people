@@ -2,10 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -13,10 +13,10 @@ import (
 )
 
 type person struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Age  int64  `json:"age"`
-	Sex  string `json:"sex"`
+	ID   int64       `json:"id"`
+	Name string      `json:"name"`
+	Age  json.Number `json:"age"`
+	Sex  json.Number `json:"sex"`
 }
 
 var DBNAME string = "people"
@@ -86,6 +86,7 @@ func getPeople(c *gin.Context) {
 			log.Fatal(err)
 			return
 		}
+		people = append(people, per)
 	}
 	if err := rows.Err(); err != nil {
 		log.Fatal(err)
@@ -104,12 +105,12 @@ func postPeople(c *gin.Context) {
 	}
 
 	db := createDB()
-	result, err := db.Exec("INSERT INTO people(name,age,sex) VALUES (?,?,?);", newPerson.Name, newPerson.Age, newPerson.Sex)
 	defer db.Close()
+
+	result, err := db.Exec("INSERT INTO people(name,age,sex) VALUES (?,?,?);", newPerson.Name, newPerson.Age, newPerson.Sex)
 
 	if err != nil {
 		log.Fatal(err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "An error has occur"})
 	}
 
 	id, err := result.LastInsertId()
@@ -117,7 +118,9 @@ func postPeople(c *gin.Context) {
 		log.Fatal(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "An error has occur"})
 	}
-	c.IndentedJSON(http.StatusCreated, gin.H{"message": "Created ID: " + strconv.FormatInt(id, 10)})
+
+	newPerson.ID = id
+	c.IndentedJSON(http.StatusOK, newPerson)
 }
 
 func getPersonByID(c *gin.Context) {
@@ -147,7 +150,9 @@ func main() {
 
 	router := gin.Default()
 
+	log.Print(os.Getenv("ENV"))
 	if os.Getenv("ENV") == "dev" {
+
 		router.Use(cors.Default())
 	}
 
