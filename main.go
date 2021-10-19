@@ -96,7 +96,7 @@ func getPeople(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, people)
 }
 
-func postPeople(c *gin.Context) {
+func createPerson(c *gin.Context) {
 	var newPerson person
 
 	if err := c.BindJSON(&newPerson); err != nil {
@@ -108,7 +108,6 @@ func postPeople(c *gin.Context) {
 	defer db.Close()
 
 	result, err := db.Exec("INSERT INTO people(name,age,sex) VALUES (?,?,?);", newPerson.Name, newPerson.Age, newPerson.Sex)
-
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -121,6 +120,37 @@ func postPeople(c *gin.Context) {
 
 	newPerson.ID = id
 	c.IndentedJSON(http.StatusOK, newPerson)
+}
+
+func updatePerson(c *gin.Context) {
+	var updatePerson person
+	if err := c.BindJSON(&updatePerson); err != nil {
+		log.Fatal(err)
+	}
+
+	db := createDB()
+	defer db.Close()
+
+	_, err := db.Exec("UPDATE people SET name = ?, age = ?, sex = ? WHERE id = ?;", updatePerson.Name, updatePerson.Age, updatePerson.Sex, updatePerson.ID)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c.IndentedJSON(http.StatusOK, updatePerson)
+}
+
+func deletePerson(c *gin.Context) {
+	id := c.Param("id")
+
+	db := createDB()
+	defer db.Close()
+
+	_, err := db.Exec("DELETE FROM people WHERE id = ?", id)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c.IndentedJSON(http.StatusOK, id)
 }
 
 func getPersonByID(c *gin.Context) {
@@ -159,7 +189,9 @@ func main() {
 	router.GET("/", defaultResponse)
 	router.GET("/people", getPeople)
 	router.GET("/people/:id", getPersonByID)
-	router.POST("/people", postPeople)
+	router.POST("/people", createPerson)
+	router.PUT("/people", updatePerson)
+	router.DELETE("/people/:id", deletePerson)
 
 	router.Run("0.0.0.0:8080")
 }
